@@ -93,10 +93,20 @@ fn load_bindings(input: &Path, matches: &ArgMatches) -> Result<Bindings, Error> 
 
         apply_config_overrides(&mut config, matches);
 
-        return Builder::new()
+        let builder = Builder::new()
             .with_config(config)
-            .with_src(input)
-            .generate();
+            .with_src(input); 
+
+        // Check for MIR
+        let builder = match matches.value_of("mir"){
+            Some(path) => {
+                let mir_path = PathBuf::from(path);
+                builder.with_mir_src(mir_path)
+            },
+            _ => {builder}
+        };
+
+        return builder.generate();
     }
 
     // We have to load a whole crate, so we use cargo to gather metadata
@@ -280,7 +290,12 @@ fn main() {
                     This option is ignored if `--out` is missing."
                 )
         )
-        .get_matches();
+        .arg(
+            Arg::new("mir")
+                .long("mir")
+                .value_name("MIR")
+                .help("Specify path to an MIR file to parse"),
+        ).get_matches();
 
     if !matches.is_present("out") && matches.is_present("verify") {
         error!(

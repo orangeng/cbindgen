@@ -8,6 +8,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::{Path as FilePath, PathBuf as FilePathBuf};
 
+use regex::Regex;
 use syn::ext::IdentExt;
 
 use crate::bindgen::bitflags;
@@ -82,6 +83,42 @@ pub(crate) fn parse_lib(lib: Cargo, config: &Config) -> ParseResult {
     context.parse_crate(&binding_crate)?;
     context.out.source_files = context.cache_src.keys().map(|k| k.to_owned()).collect();
     Ok(context.out)
+}
+
+/// Parses a Rust MIR source file
+pub fn parse_mir(mir_path: &FilePath, config: &Config, parse: &mut Parse) -> Result<(), Error> {
+
+    // Open the file
+    let mod_name = mir_path.file_stem().unwrap().to_str().unwrap();
+    let mut mir_file = File::open(mir_path).map_err(|_| Error::ParseCannotOpenFile {
+         crate_name: mod_name.to_owned(), src_path: mir_path.to_str().unwrap().to_owned()
+        }
+    )?;
+    let mut file_str: String = String::new();
+    mir_file.read_to_string(&mut file_str).map_err(|_| Error::ParseCannotOpenFile {
+         crate_name: mod_name.to_owned(), src_path: mir_path.to_str().unwrap().to_owned() 
+        }
+    )?;
+
+    // Check each function signature for associated types
+    for func in parse.functions.iter(){
+        if let Some(type_path) = &func.syn_ret{
+            let mut pat: String = String::from(r"fn[^{]*");
+            pat.push_str(func.path.name());
+            pat.push_str(r"[^{]*->(?<ret_type>[^{]*)\{");
+
+            let re = Regex::new(&pat).unwrap();
+            match re.captures(&file_str){
+                Some(cap) => {
+                    println!("Capture: {}", cap.name("ret_type").unwrap().as_str().trim());
+                },
+                _ => {}
+            }
+        }
+    }
+
+    Ok(())
+
 }
 
 #[derive(Debug, Clone)]

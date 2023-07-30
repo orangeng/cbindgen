@@ -20,6 +20,7 @@ pub struct Builder {
     lib_cargo: Option<Cargo>,
     std_types: bool,
     lockfile: Option<path::PathBuf>,
+    mir_srcs: Vec<path::PathBuf>,
 }
 
 impl Builder {
@@ -32,6 +33,7 @@ impl Builder {
             lib_cargo: None,
             std_types: true,
             lockfile: None,
+            mir_srcs: Vec::new(),
         }
     }
 
@@ -306,6 +308,12 @@ impl Builder {
     }
 
     #[allow(unused)]
+    pub fn with_mir_src<P: AsRef<path::Path>>(mut self, src: P) -> Builder {
+        self.mir_srcs.push(src.as_ref().to_owned());
+        self
+    }
+
+    #[allow(unused)]
     pub fn with_crate<P: AsRef<path::Path>>(mut self, lib_dir: P) -> Builder {
         debug_assert!(self.lib.is_none());
         debug_assert!(self.lib_cargo.is_none());
@@ -394,6 +402,18 @@ impl Builder {
 
         result.source_files.extend_from_slice(self.srcs.as_slice());
 
+        // Intercept here to inspect functions from parse
+        let func_vec = &result.functions;
+        println!("Vec<Function> length: {}", func_vec.len());
+        for func in func_vec.iter(){
+            println!("Function: {func:#?}");
+        }
+
+        // Parse each MIR file
+        for mir in self.mir_srcs.iter(){
+            parser::parse_mir(mir, &self.config, &mut result)?;
+        }
+        
         Library::new(
             self.config,
             result.constants,
