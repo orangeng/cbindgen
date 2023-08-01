@@ -403,6 +403,7 @@ impl Builder {
         result.source_files.extend_from_slice(self.srcs.as_slice());
 
         // Intercept here to inspect functions from parse
+        println!("\n\nFunctions pre-MIR: ");
         let func_vec = &result.functions;
         println!("Vec<Function> length: {}", func_vec.len());
         for func in func_vec.iter(){
@@ -412,6 +413,14 @@ impl Builder {
         // Parse each MIR file
         for mir in self.mir_srcs.iter(){
             parser::parse_mir(mir, &self.config, &mut result)?;
+        }
+
+        // Intercept here to inspect functions after MIR parse
+        println!("\n\nFunctions post-MIR: ");
+        let func_vec = &result.functions;
+        println!("Vec<Function> length: {}", func_vec.len());
+        for func in func_vec.iter(){
+            println!("Function: {func:#?}");
         }
         
         Library::new(

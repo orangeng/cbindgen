@@ -101,7 +101,9 @@ pub fn parse_mir(mir_path: &FilePath, config: &Config, parse: &mut Parse) -> Res
     )?;
 
     // Check each function signature for associated types
-    for func in parse.functions.iter(){
+    for func in parse.functions.iter_mut(){
+
+        // Check for associated types in the return type
         if let Some(type_path) = &func.syn_ret{
             let mut pat: String = String::from(r"fn[^{]*");
             pat.push_str(func.path.name());
@@ -110,7 +112,30 @@ pub fn parse_mir(mir_path: &FilePath, config: &Config, parse: &mut Parse) -> Res
             let re = Regex::new(&pat).unwrap();
             match re.captures(&file_str){
                 Some(cap) => {
-                    println!("Capture: {}", cap.name("ret_type").unwrap().as_str().trim());
+
+                    // If found, replace the associated type with the concrete type
+                    let ret_str = cap.name("ret_type").unwrap().as_str().trim();
+                    println!("Capture: {}", ret_str);
+                    let syn_ret: syn::Type = syn::parse_str(ret_str).map_err(|err| Error::ParseSyntaxError {
+                        crate_name: mod_name.to_owned(),
+                        src_path: mir_path.to_str().unwrap().to_owned(),
+                        error: err,
+                    })?;
+
+                    // Convert syn::Type to ir::Type
+                    let ir_type_result = Type::load(&syn_ret);
+                    match ir_type_result {
+                        Ok(ir_type_opt) => {
+                            // Replace func return type if valid one is found
+                            if let Some(ir_type) = ir_type_opt{
+                                func.ret = ir_type;
+                            }
+                        },
+                        Err(err_msg) => {
+                            error!("Unable to convert syn::Type parsed from {} to ir::Type. ({})", ret_str, err_msg);
+                        }
+                    }
+                    
                 },
                 _ => {}
             }
