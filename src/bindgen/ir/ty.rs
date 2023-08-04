@@ -470,7 +470,7 @@ impl Type {
                 }
             }
             syn::Type::Path(ref path) => {
-                let generic_path = GenericPath::load(&path.path)?;
+                let mut generic_path = GenericPath::load(&path.path)?;
 
                 if generic_path.name() == "PhantomData" || generic_path.name() == "PhantomPinned" {
                     return Ok(None);
@@ -482,8 +482,23 @@ impl Type {
                     }
                     Type::Primitive(prim)
                 } else {
-                    Type::Path(generic_path)
+                    // Check for qself in syn::TypePath
+                    if let Some(qself) = &path.qself{
+                        let qself_type = Type::load(&qself.ty)?;
+                        match qself_type {
+                            Some(ty) => {
+                                generic_path.set_qself(ty);
+                                Type::Path(generic_path)
+                            },
+                            _ => {Type::Path(generic_path)}
+                        }
+                    }
+                    else{
+                        Type::Path(generic_path)
+                    }
                 }
+
+
             }
             syn::Type::Array(syn::TypeArray {
                 ref elem, ref len, ..

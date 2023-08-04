@@ -41,8 +41,6 @@ pub struct Function {
     pub annotations: AnnotationSet,
     pub documentation: Documentation,
     pub never_return: bool,
-    // Syn return type
-    pub syn_ret: Option<syn::TypePath>
 }
 
 impl Function {
@@ -65,23 +63,6 @@ impl Function {
             ret.replace_self_with(self_path);
         }
 
-        // Populate syn_ret if return type is an associated type
-        // Determined by checking for TypePath and non-empty TypePath.qself
-        let syn_ret: Option<syn::TypePath> = match &sig.output{
-            syn::ReturnType::Default => None,
-            syn::ReturnType::Type(_, boxed_type) => {
-                match &**boxed_type{
-                    syn::Type::Path(type_path) => {
-                        match type_path.qself {
-                            Some(_) => { Some(type_path.clone()) },
-                            _ => None,
-                        }
-                    },
-                    _ => None
-                }
-            },
-        };
-
         Ok(Function {
             path,
             self_type_path: self_type_path.cloned(),
@@ -92,7 +73,6 @@ impl Function {
             annotations: AnnotationSet::load(attrs)?,
             documentation: Documentation::load(attrs),
             never_return,
-            syn_ret,
         })
     }
 

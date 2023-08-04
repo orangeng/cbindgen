@@ -200,6 +200,7 @@ pub struct GenericPath {
     export_name: String,
     generics: Vec<GenericArgument>,
     ctype: Option<DeclarationType>,
+    pub qself: Option<Box<Type>>,
 }
 
 impl GenericPath {
@@ -210,6 +211,7 @@ impl GenericPath {
             export_name,
             generics,
             ctype: None,
+            qself: None,
         }
     }
 
@@ -299,5 +301,9 @@ impl GenericPath {
         };
 
         Ok(Self::new(path, generics))
+    }
+
+    pub fn set_qself(&mut self, qself: Type){
+        self.qself = Some(Box::new(qself));        
     }
 }

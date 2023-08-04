@@ -307,7 +307,6 @@ impl Builder {
         self
     }
 
-    #[allow(unused)]
     pub fn with_mir_src<P: AsRef<path::Path>>(mut self, src: P) -> Builder {
         self.mir_srcs.push(src.as_ref().to_owned());
         self

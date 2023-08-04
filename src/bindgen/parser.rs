@@ -16,7 +16,7 @@ use crate::bindgen::cargo::{Cargo, PackageRef};
 use crate::bindgen::config::{Config, ParseConfig};
 use crate::bindgen::error::Error;
 use crate::bindgen::ir::{
-    AnnotationSet, Cfg, Constant, Documentation, Enum, Function, GenericParam, GenericParams,
+    AnnotationSet, Cfg, Constant, Documentation, Enum, Function, GenericPath, GenericParam, GenericParams,
     ItemMap, OpaqueItem, Path, Static, Struct, Type, Typedef, Union,
 };
 use crate::bindgen::utilities::{SynAbiHelpers, SynAttributeHelpers, SynItemFnHelpers};
@@ -88,7 +88,6 @@ pub(crate) fn parse_lib(lib: Cargo, config: &Config) -> ParseResult {
 /// Parses a Rust MIR source file
 pub fn parse_mir(mir_path: &FilePath, config: &Config, parse: &mut Parse) -> Result<(), Error> {
 
-    // Open the file
     let mod_name = mir_path.file_stem().unwrap().to_str().unwrap();
     let mut mir_file = File::open(mir_path).map_err(|_| Error::ParseCannotOpenFile {
          crate_name: mod_name.to_owned(), src_path: mir_path.to_str().unwrap().to_owned()
@@ -104,7 +103,7 @@ pub fn parse_mir(mir_path: &FilePath, config: &Config, parse: &mut Parse) -> Res
     for func in parse.functions.iter_mut(){
 
         // Check for associated types in the return type
-        if let Some(type_path) = &func.syn_ret{
+        if let Type::Path(GenericPath{qself: Some(_), ..}) = &func.ret{
             let mut pat: String = String::from(r"fn[^{]*");
             pat.push_str(func.path.name());
             pat.push_str(r"[^{]*->(?<ret_type>[^{]*)\{");
