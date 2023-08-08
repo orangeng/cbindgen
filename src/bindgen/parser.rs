@@ -9,6 +9,7 @@ use std::io::Read;
 use std::path::{Path as FilePath, PathBuf as FilePathBuf};
 
 use regex::Regex;
+use syn::FnArg;
 use syn::ext::IdentExt;
 
 use crate::bindgen::bitflags;
@@ -101,9 +102,8 @@ pub fn parse_mir(mir_path: &FilePath, config: &Config, parse: &mut Parse) -> Res
 
     // Struct to track presence of associated types
     struct Assoc{
-        present: bool,
         ret: bool,
-        args: Vec<bool>,
+        args: Vec<usize>,
     }
 
     // Check each function signature for associated types
@@ -111,25 +111,19 @@ pub fn parse_mir(mir_path: &FilePath, config: &Config, parse: &mut Parse) -> Res
 
         // Parse function to populate struct
         let mut assoc_track = Assoc{
-            present: false,
             ret: false,
             args: Vec::new(),
         };
         if let Type::Path(GenericPath{qself: Some(_), ..}) = &func.ret{
-            assoc_track.present = true;
             assoc_track.ret = true;
         }
-        for fn_arg in &func.args{
-            if let Type::Path(GenericPath{qself: Some(_), ..}) = &fn_arg.ty{
-                assoc_track.present = true;
-                assoc_track.args.push(true);
-            }
-            else { 
-                assoc_track.args.push(false);
+        for index in 0..func.args.len(){
+            if let Type::Path(GenericPath{qself: Some(_), ..}) = func.args[index].ty{
+                assoc_track.args.push(index);
             }
         }
 
-        if !assoc_track.present{
+        if !assoc_track.ret && assoc_track.args.is_empty(){
            continue;
         }
 
@@ -151,7 +145,7 @@ pub fn parse_mir(mir_path: &FilePath, config: &Config, parse: &mut Parse) -> Res
              error: err,
         })?;
 
-        // Replace return types
+        // Replace return type
         if assoc_track.ret{
             if let syn::ReturnType::Type(_, boxed_type) = fn_sig_syn.output{
                 let ir_type_result = Type::load(&boxed_type);
@@ -168,6 +162,36 @@ pub fn parse_mir(mir_path: &FilePath, config: &Config, parse: &mut Parse) -> Res
                 }
             }
         }
+
+        if assoc_track.args.is_empty(){
+            continue;
+        }
+
+        // Sanity check
+        let fn_sig_args: Vec<&syn::FnArg> = fn_sig_syn.inputs.iter().collect();
+        if fn_sig_args.len() != func.args.len(){
+            error!("Number of arguments in MIR does not match source code parse. Skipping function.");
+            continue;
+        }
+
+        // Replace arguments' types
+        for index in assoc_track.args{
+            if let syn::FnArg::Typed(pat_type) = fn_sig_args[index]{
+                let ir_type_result = Type::load(&pat_type.ty);
+                match ir_type_result {
+                    Ok(ir_type_opt) => {
+                        // Replace func arg type if valid one is found
+                        if let Some(ir_type) = ir_type_opt{
+                            func.args[index].ty = ir_type;
+                        }
+                    },
+                    Err(err_msg) => {
+                        error!("Unable to convert syn::Type parsed from {} to ir::Type. ({})", fn_sig_str, err_msg);
+                    }
+                }
+            }
+        }
+
     }
 
     Ok(())
