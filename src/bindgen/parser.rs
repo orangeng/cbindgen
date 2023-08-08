@@ -99,44 +99,73 @@ pub fn parse_mir(mir_path: &FilePath, config: &Config, parse: &mut Parse) -> Res
         }
     )?;
 
+    // Struct to track presence of associated types
+    struct Assoc{
+        present: bool,
+        ret: bool,
+        args: Vec<bool>,
+    }
+
     // Check each function signature for associated types
     for func in parse.functions.iter_mut(){
 
-        // Check for associated types in the return type
+        // Parse function to populate struct
+        let mut assoc_track = Assoc{
+            present: false,
+            ret: false,
+            args: Vec::new(),
+        };
         if let Type::Path(GenericPath{qself: Some(_), ..}) = &func.ret{
-            let mut pat: String = String::from(r"fn[^{]*");
-            pat.push_str(func.path.name());
-            pat.push_str(r"[^{]*->(?<ret_type>[^{]*)\{");
+            assoc_track.present = true;
+            assoc_track.ret = true;
+        }
+        for fn_arg in &func.args{
+            if let Type::Path(GenericPath{qself: Some(_), ..}) = &fn_arg.ty{
+                assoc_track.present = true;
+                assoc_track.args.push(true);
+            }
+            else { 
+                assoc_track.args.push(false);
+            }
+        }
 
-            let re = Regex::new(&pat).unwrap();
-            match re.captures(&file_str){
-                Some(cap) => {
+        if !assoc_track.present{
+           continue;
+        }
 
-                    // If found, replace the associated type with the concrete type
-                    let ret_str = cap.name("ret_type").unwrap().as_str().trim();
-                    println!("Capture: {}", ret_str);
-                    let syn_ret: syn::Type = syn::parse_str(ret_str).map_err(|err| Error::ParseSyntaxError {
-                        crate_name: mod_name.to_owned(),
-                        src_path: mir_path.to_str().unwrap().to_owned(),
-                        error: err,
-                    })?;
+        // Search for function signature in MIR
+        let mut pat: String = String::from(r"fn[^{]*");
+        pat.push_str(func.path.name());
+        pat.push_str(r"[^{]*");
+        
+        let re = Regex::new(&pat).unwrap();
+        let fn_sig_str: &str = match re.find(&file_str){
+            Some(mat) => mat.as_str(),
+            None => continue,
+        };
 
-                    // Convert syn::Type to ir::Type
-                    let ir_type_result = Type::load(&syn_ret);
-                    match ir_type_result {
-                        Ok(ir_type_opt) => {
-                            // Replace func return type if valid one is found
-                            if let Some(ir_type) = ir_type_opt{
-                                func.ret = ir_type;
-                            }
-                        },
-                        Err(err_msg) => {
-                            error!("Unable to convert syn::Type parsed from {} to ir::Type. ({})", ret_str, err_msg);
+        // Parse function signature into syn::Signature
+        let fn_sig_syn: syn::Signature = syn::parse_str(fn_sig_str).map_err(|err| Error::ParseSyntaxError {
+             crate_name: mod_name.to_owned(), 
+             src_path: mir_path.to_str().unwrap().to_owned(),
+             error: err,
+        })?;
+
+        // Replace return types
+        if assoc_track.ret{
+            if let syn::ReturnType::Type(_, boxed_type) = fn_sig_syn.output{
+                let ir_type_result = Type::load(&boxed_type);
+                match ir_type_result {
+                    Ok(ir_type_opt) => {
+                        // Replace func return type if valid one is found
+                        if let Some(ir_type) = ir_type_opt{
+                            func.ret = ir_type;
                         }
+                    },
+                    Err(err_msg) => {
+                        error!("Unable to convert syn::Type parsed from {} to ir::Type. ({})", fn_sig_str, err_msg);
                     }
-                    
-                },
-                _ => {}
+                }
             }
         }
     }
