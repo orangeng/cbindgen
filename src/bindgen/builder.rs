@@ -20,7 +20,7 @@ pub struct Builder {
     lib_cargo: Option<Cargo>,
     std_types: bool,
     lockfile: Option<path::PathBuf>,
-    mir_srcs: Vec<path::PathBuf>,
+    mir_srcs: Option<path::PathBuf>,
 }
 
 impl Builder {
@@ -33,7 +33,7 @@ impl Builder {
             lib_cargo: None,
             std_types: true,
             lockfile: None,
-            mir_srcs: Vec::new(),
+            mir_srcs: None,
         }
     }
 
@@ -308,7 +308,7 @@ impl Builder {
     }
 
     pub fn with_mir_src<P: AsRef<path::Path>>(mut self, src: P) -> Builder {
-        self.mir_srcs.push(src.as_ref().to_owned());
+        self.mir_srcs = Some(src.as_ref().to_owned());
         self
     }
 
@@ -410,8 +410,8 @@ impl Builder {
         }
 
         // Parse each MIR file
-        for mir in self.mir_srcs.iter(){
-            parser::parse_mir(mir, &self.config, &mut result)?;
+        if let Some(path) = &self.mir_srcs{
+            parser::parse_mir(path, &self.config, &mut result)?;
         }
 
         // Intercept here to inspect functions after MIR parse

@@ -9,7 +9,6 @@ use std::io::Read;
 use std::path::{Path as FilePath, PathBuf as FilePathBuf};
 
 use regex::Regex;
-use syn::FnArg;
 use syn::ext::IdentExt;
 
 use crate::bindgen::bitflags;
