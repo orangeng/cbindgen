@@ -5,7 +5,7 @@
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
-use std::io::Read;
+use std::io::{Read, BufReader, BufRead, Seek};
 use std::path::{Path as FilePath, PathBuf as FilePathBuf};
 
 use regex::Regex;
@@ -93,11 +93,6 @@ pub fn parse_mir(mir_path: &FilePath, config: &Config, parse: &mut Parse) -> Res
          crate_name: mod_name.to_owned(), src_path: mir_path.to_str().unwrap().to_owned()
         }
     )?;
-    let mut file_str: String = String::new();
-    mir_file.read_to_string(&mut file_str).map_err(|_| Error::ParseCannotOpenFile {
-         crate_name: mod_name.to_owned(), src_path: mir_path.to_str().unwrap().to_owned() 
-        }
-    )?;
 
     // Struct to track presence of associated types
     struct Assoc{
@@ -126,19 +121,40 @@ pub fn parse_mir(mir_path: &FilePath, config: &Config, parse: &mut Parse) -> Res
            continue;
         }
 
-        // Search for function signature in MIR
-        let mut pat: String = String::from(r"fn[^{]*");
-        pat.push_str(func.path.name());
-        pat.push_str(r"[^{]*");
-        
+        let pat = format!(r"fn[^{{]*{}[^{{]*", func.path.name());
         let re = Regex::new(&pat).unwrap();
-        let fn_sig_str: &str = match re.find(&file_str){
-            Some(mat) => mat.as_str(),
-            None => continue,
-        };
+
+        // Buffered read of the file
+        let mut reader = BufReader::new(&mir_file);
+        let mut fn_sig_str = String::from("");
+        loop {
+            let mut buf: Vec<u8> = Vec::new();
+            let read_amt = reader.read_until(b'{', &mut buf).map_err(|err| Error::ParseCannotOpenFile {
+                crate_name: mod_name.to_owned(), 
+                src_path: mir_path.to_str().unwrap().to_owned(),
+            })?;
+
+            if read_amt == 0{
+                break;
+            }
+
+            match re.find(&String::from_utf8(buf).unwrap()){
+                Some(mat) => {
+                    fn_sig_str = String::from(mat.as_str());
+                    break;
+                },
+                None => continue,
+            };
+
+        }
+        mir_file.rewind().unwrap();        
+
+        if fn_sig_str.is_empty() {
+            continue;
+        }
 
         // Parse function signature into syn::Signature
-        let fn_sig_syn: syn::Signature = syn::parse_str(fn_sig_str).map_err(|err| Error::ParseSyntaxError {
+        let fn_sig_syn: syn::Signature = syn::parse_str(&fn_sig_str).map_err(|err| Error::ParseSyntaxError {
              crate_name: mod_name.to_owned(), 
              src_path: mir_path.to_str().unwrap().to_owned(),
              error: err,
