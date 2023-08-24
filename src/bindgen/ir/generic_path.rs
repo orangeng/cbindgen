@@ -267,7 +267,7 @@ impl GenericPath {
         self.ctype = resolver.type_for(&self.path);
     }
 
-    pub fn load(path: &syn::Path) -> Result<Self, String> {
+    pub fn load(path: &syn::Path, qself: &Option<syn::QSelf>) -> Result<Self, String> {
         assert!(
             !path.segments.is_empty(),
             "{:?} doesn't have any segments",
@@ -300,7 +300,22 @@ impl GenericPath {
             _ => Vec::new(),
         };
 
-        Ok(Self::new(path, generics))
+        match qself { 
+            Some(qself) => {
+                let qself_type = Type::load(&qself.ty)?;
+                match qself_type{
+                    Some(ty) => {
+                        let mut generic_path = Self::new(path, generics);
+                        generic_path.qself = Some(Box::new(ty));
+                        Ok(generic_path)
+                    }
+                    _ => Ok(Self::new(path, generics)) 
+                }
+            }
+            _ => Ok(Self::new(path, generics))
+
+        }
+
     }
 
     pub fn set_qself(&mut self, qself: Type){

@@ -403,7 +403,7 @@ impl Builder {
 
         // Parse each MIR file
         if let Some(path) = &self.mir_srcs{
-            parser::parse_mir(path, &self.config, &mut result)?;
+            parser::parse_mir(path, &mut result)?;
         }
         
         Library::new(

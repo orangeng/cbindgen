@@ -86,7 +86,7 @@ pub(crate) fn parse_lib(lib: Cargo, config: &Config) -> ParseResult {
 }
 
 /// Parses a Rust MIR source file
-pub fn parse_mir(mir_path: &FilePath, config: &Config, parse: &mut Parse) -> Result<(), Error> {
+pub fn parse_mir(mir_path: &FilePath, parse: &mut Parse) -> Result<(), Error> {
 
     let mod_name = mir_path.file_stem().unwrap().to_str().unwrap();
     let mut mir_file = File::open(mir_path).map_err(|_| Error::ParseCannotOpenFile {
