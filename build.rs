@@ -48,6 +48,20 @@ fn generate_tests() {
         .unwrap();
     }
 
+    // Test associated types resolved with MIR
+    writeln!(
+        dst,
+        "
+        #[test]\n
+        fn test_assoc_types() {{\n
+            test_file(\"assoc_types\", {:?}, {:?});\n
+        }}\n
+        ",
+        tests_dir.join("assoc_types.test"),
+        tests_dir.join("assoc_types.mir"),
+    )
+    .unwrap();
+
     dst.flush().unwrap();
 }
 

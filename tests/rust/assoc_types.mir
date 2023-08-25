@@ -1,0 +1,58 @@
+// WARNING: This output format is intended for human consumers only
+// and is subject to change without notice. Knock yourself out.
+fn return_assoc(_1: &MyStruct) -> u8 {
+    debug struct_ => _1;                 // in scope 0 at assoc.rs:16:28: 16:35
+    let mut _0: u8;                      // return place in scope 0 at assoc.rs:16:51: 16:82
+    let mut _2: u8;                      // in scope 0 at assoc.rs:17:5: 17:26
+    let mut _3: u8;                      // in scope 0 at assoc.rs:17:5: 17:14
+    let mut _4: u8;                      // in scope 0 at assoc.rs:17:17: 17:26
+    let mut _5: (u8, bool);              // in scope 0 at assoc.rs:17:5: 17:26
+    let mut _6: u8;                      // in scope 0 at assoc.rs:17:29: 17:38
+    let mut _7: (u8, bool);              // in scope 0 at assoc.rs:17:5: 17:38
+
+    bb0: {
+        _3 = ((*_1).0: u8);              // scope 0 at assoc.rs:17:5: 17:14
+        _4 = ((*_1).1: u8);              // scope 0 at assoc.rs:17:17: 17:26
+        _5 = CheckedAdd(_3, _4);         // scope 0 at assoc.rs:17:5: 17:26
+        assert(!move (_5.1: bool), "attempt to compute `{} + {}`, which would overflow", move _3, move _4) -> bb1; // scope 0 at assoc.rs:17:5: 17:26
+    }
+
+    bb1: {
+        _2 = move (_5.0: u8);            // scope 0 at assoc.rs:17:5: 17:26
+        _6 = ((*_1).2: u8);              // scope 0 at assoc.rs:17:29: 17:38
+        _7 = CheckedAdd(_2, _6);         // scope 0 at assoc.rs:17:5: 17:38
+        assert(!move (_7.1: bool), "attempt to compute `{} + {}`, which would overflow", move _2, move _6) -> bb2; // scope 0 at assoc.rs:17:5: 17:38
+    }
+
+    bb2: {
+        _0 = move (_7.0: u8);            // scope 0 at assoc.rs:17:5: 17:38
+        return;                          // scope 0 at assoc.rs:18:2: 18:2
+    }
+}
+
+fn arg_assoc(_1: u8) -> u8 {
+    debug assoc_type => _1;              // in scope 0 at assoc.rs:21:25: 21:35
+    let mut _0: u8;                      // return place in scope 0 at assoc.rs:21:73: 21:104
+
+    bb0: {
+        _0 = _1;                         // scope 0 at assoc.rs:22:5: 22:15
+        return;                          // scope 0 at assoc.rs:23:2: 23:2
+    }
+}
+
+fn add(_1: u8, _2: u8) -> u8 {
+    debug a => _1;                       // in scope 0 at assoc.rs:25:32: 25:33
+    debug b => _2;                       // in scope 0 at assoc.rs:25:39: 25:40
+    let mut _0: u8;                      // return place in scope 0 at assoc.rs:25:49: 25:51
+    let mut _3: (u8, bool);              // in scope 0 at assoc.rs:26:5: 26:10
+
+    bb0: {
+        _3 = CheckedAdd(_1, _2);         // scope 0 at assoc.rs:26:5: 26:10
+        assert(!move (_3.1: bool), "attempt to compute `{} + {}`, which would overflow", _1, _2) -> bb1; // scope 0 at assoc.rs:26:5: 26:10
+    }
+
+    bb1: {
+        _0 = move (_3.0: u8);            // scope 0 at assoc.rs:26:5: 26:10
+        return;                          // scope 0 at assoc.rs:27:2: 27:2
+    }
+}

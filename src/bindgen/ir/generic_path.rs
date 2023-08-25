@@ -318,7 +318,4 @@ impl GenericPath {
 
     }
 
-    pub fn set_qself(&mut self, qself: Type){
-        self.qself = Some(Box::new(qself));        
-    }
 }

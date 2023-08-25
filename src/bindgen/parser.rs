@@ -129,7 +129,7 @@ pub fn parse_mir(mir_path: &FilePath, parse: &mut Parse) -> Result<(), Error> {
         let mut fn_sig_str = String::from("");
         loop {
             let mut buf: Vec<u8> = Vec::new();
-            let read_amt = reader.read_until(b'{', &mut buf).map_err(|err| Error::ParseCannotOpenFile {
+            let read_amt = reader.read_until(b'{', &mut buf).map_err(|_| Error::ParseCannotOpenFile {
                 crate_name: mod_name.to_owned(), 
                 src_path: mir_path.to_str().unwrap().to_owned(),
             })?;

@@ -470,7 +470,7 @@ impl Type {
                 }
             }
             syn::Type::Path(ref path) => {
-                let mut generic_path = GenericPath::load(&path.path, &path.qself)?;
+                let generic_path = GenericPath::load(&path.path, &path.qself)?;
 
                 if generic_path.name() == "PhantomData" || generic_path.name() == "PhantomPinned" {
                     return Ok(None);
