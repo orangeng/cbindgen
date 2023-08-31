@@ -20,7 +20,7 @@ pub struct Builder {
     lib_cargo: Option<Cargo>,
     std_types: bool,
     lockfile: Option<path::PathBuf>,
-    mir_srcs: Option<path::PathBuf>,
+    mir_src: Option<path::PathBuf>,
 }
 
 impl Builder {
@@ -33,7 +33,7 @@ impl Builder {
             lib_cargo: None,
             std_types: true,
             lockfile: None,
-            mir_srcs: None,
+            mir_src: None,
         }
     }
 
@@ -308,7 +308,7 @@ impl Builder {
     }
 
     pub fn with_mir_src<P: AsRef<path::Path>>(mut self, src: P) -> Builder {
-        self.mir_srcs = Some(src.as_ref().to_owned());
+        self.mir_src = Some(src.as_ref().to_owned());
         self
     }
 
@@ -401,11 +401,11 @@ impl Builder {
 
         result.source_files.extend_from_slice(self.srcs.as_slice());
 
-        // Parse each MIR file
-        if let Some(path) = &self.mir_srcs{
+        // Parse MIR file
+        if let Some(path) = &self.mir_src {
             parser::parse_mir(path, &mut result)?;
         }
-        
+
         Library::new(
             self.config,
             result.constants,

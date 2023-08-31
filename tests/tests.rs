@@ -4,7 +4,7 @@ use cbindgen::*;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
 use std::{env, fs, str};
 
@@ -26,7 +26,7 @@ fn run_cbindgen(
     cpp_compat: bool,
     style: Option<Style>,
     generate_depfile: bool,
-    mir_path: Option<&Path>
+    mir_path: Option<&Path>,
 ) -> (Vec<u8>, Option<String>) {
     assert!(
         !(output.is_none() && generate_depfile),
@@ -247,7 +247,7 @@ fn run_compile_test(
         cpp_compat,
         style,
         generate_depfile,
-        mir_path
+        mir_path,
     );
     if generate_depfile {
         let depfile = depfile_contents.expect("No depfile generated");
@@ -309,9 +309,13 @@ fn run_compile_test(
     }
 }
 
-fn test_file(name: &'static str, filename: &'static str, mir_file: &'static str) {
+fn test_file(name: &'static str, filename: &'static str, mir_file: Option<&'static str>) {
     let test = Path::new(filename);
-    let mir_path: Option<&Path> = if mir_file.is_empty(){ None } else { Some(Path::new(mir_file)) };
+    let mir_path: Option<&Path> = if let Some(mir_path) = mir_file {
+        Some(Path::new(mir_path))
+    } else {
+        None
+    };
     let tmp_dir = tempfile::Builder::new()
         .prefix("cbindgen-test-output")
         .tempdir()
@@ -330,7 +334,7 @@ fn test_file(name: &'static str, filename: &'static str, mir_file: &'static str)
                 *cpp_compat,
                 Some(*style),
                 &mut cbindgen_outputs,
-                mir_path
+                mir_path,
             );
         }
     }
@@ -343,7 +347,7 @@ fn test_file(name: &'static str, filename: &'static str, mir_file: &'static str)
         /* cpp_compat = */ false,
         None,
         &mut HashSet::new(),
-        mir_path
+        mir_path,
     );
 
     // `Style::Both` should be identical to `Style::Tag` for Cython.
@@ -357,7 +361,7 @@ fn test_file(name: &'static str, filename: &'static str, mir_file: &'static str)
             /* cpp_compat = */ false,
             Some(*style),
             &mut cbindgen_outputs,
-            mir_path
+            mir_path,
         );
     }
 }
@@ -366,7 +370,7 @@ macro_rules! test_file {
     ($test_function_name:ident, $name:expr, $file:tt) => {
         #[test]
         fn $test_function_name() {
-            test_file($name, $file, "");
+            test_file($name, $file, None);
         }
     };
 }

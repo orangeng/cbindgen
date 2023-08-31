@@ -484,8 +484,6 @@ impl Type {
                 } else {
                     Type::Path(generic_path)
                 }
-
-
             }
             syn::Type::Array(syn::TypeArray {
                 ref elem, ref len, ..

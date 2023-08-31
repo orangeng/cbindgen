@@ -93,17 +93,15 @@ fn load_bindings(input: &Path, matches: &ArgMatches) -> Result<Bindings, Error> 
 
         apply_config_overrides(&mut config, matches);
 
-        let builder = Builder::new()
-            .with_config(config)
-            .with_src(input); 
+        let builder = Builder::new().with_config(config).with_src(input);
 
         // Check for MIR
-        let builder = match matches.value_of("mir"){
+        let builder = match matches.value_of("mir") {
             Some(path) => {
                 let mir_path = PathBuf::from(path);
                 builder.with_mir_src(mir_path)
-            },
-            _ => {builder}
+            }
+            _ => builder,
         };
 
         return builder.generate();

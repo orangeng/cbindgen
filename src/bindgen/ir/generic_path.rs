@@ -300,22 +300,19 @@ impl GenericPath {
             _ => Vec::new(),
         };
 
-        match qself { 
+        match qself {
             Some(qself) => {
                 let qself_type = Type::load(&qself.ty)?;
-                match qself_type{
+                match qself_type {
                     Some(ty) => {
                         let mut generic_path = Self::new(path, generics);
                         generic_path.qself = Some(Box::new(ty));
                         Ok(generic_path)
                     }
-                    _ => Ok(Self::new(path, generics)) 
+                    _ => Ok(Self::new(path, generics)),
                 }
             }
-            _ => Ok(Self::new(path, generics))
-
+            _ => Ok(Self::new(path, generics)),
         }
-
     }
-
 }

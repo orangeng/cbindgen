@@ -5,7 +5,7 @@
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
-use std::io::{Read, BufReader, BufRead, Seek};
+use std::io::{BufRead, BufReader, Read, Seek};
 use std::path::{Path as FilePath, PathBuf as FilePathBuf};
 
 use regex::Regex;
@@ -16,8 +16,8 @@ use crate::bindgen::cargo::{Cargo, PackageRef};
 use crate::bindgen::config::{Config, ParseConfig};
 use crate::bindgen::error::Error;
 use crate::bindgen::ir::{
-    AnnotationSet, Cfg, Constant, Documentation, Enum, Function, GenericPath, GenericParam, GenericParams,
-    ItemMap, OpaqueItem, Path, Static, Struct, Type, Typedef, Union,
+    AnnotationSet, Cfg, Constant, Documentation, Enum, Function, GenericParam, GenericParams,
+    GenericPath, ItemMap, OpaqueItem, Path, Static, Struct, Type, Typedef, Union,
 };
 use crate::bindgen::utilities::{SynAbiHelpers, SynAttributeHelpers, SynItemFnHelpers};
 
@@ -87,38 +87,36 @@ pub(crate) fn parse_lib(lib: Cargo, config: &Config) -> ParseResult {
 
 /// Parses a Rust MIR source file
 pub fn parse_mir(mir_path: &FilePath, parse: &mut Parse) -> Result<(), Error> {
-
     let mod_name = mir_path.file_stem().unwrap().to_str().unwrap();
     let mut mir_file = File::open(mir_path).map_err(|_| Error::ParseCannotOpenFile {
-         crate_name: mod_name.to_owned(), src_path: mir_path.to_str().unwrap().to_owned()
-        }
-    )?;
+        crate_name: mod_name.to_owned(),
+        src_path: mir_path.to_str().unwrap().to_owned(),
+    })?;
 
     // Struct to track presence of associated types
-    struct Assoc{
+    struct Assoc {
         ret: bool,
         args: Vec<usize>,
     }
 
     // Check each function signature for associated types
-    for func in parse.functions.iter_mut(){
-
+    for func in parse.functions.iter_mut() {
         // Parse function to populate struct
-        let mut assoc_track = Assoc{
+        let mut assoc_track = Assoc {
             ret: false,
             args: Vec::new(),
         };
-        if let Type::Path(GenericPath{qself: Some(_), ..}) = &func.ret{
+        if let Type::Path(GenericPath { qself: Some(_), .. }) = &func.ret {
             assoc_track.ret = true;
         }
-        for index in 0..func.args.len(){
-            if let Type::Path(GenericPath{qself: Some(_), ..}) = func.args[index].ty{
+        for index in 0..func.args.len() {
+            if let Type::Path(GenericPath { qself: Some(_), .. }) = func.args[index].ty {
                 assoc_track.args.push(index);
             }
         }
 
-        if !assoc_track.ret && assoc_track.args.is_empty(){
-           continue;
+        if !assoc_track.ret && assoc_track.args.is_empty() {
+            continue;
         }
 
         let pat = format!(r"fn[^{{]*{}[^{{]*", func.path.name());
@@ -129,88 +127,97 @@ pub fn parse_mir(mir_path: &FilePath, parse: &mut Parse) -> Result<(), Error> {
         let mut fn_sig_str = String::from("");
         loop {
             let mut buf: Vec<u8> = Vec::new();
-            let read_amt = reader.read_until(b'{', &mut buf).map_err(|_| Error::ParseCannotOpenFile {
-                crate_name: mod_name.to_owned(), 
-                src_path: mir_path.to_str().unwrap().to_owned(),
-            })?;
+            let read_amt =
+                reader
+                    .read_until(b'{', &mut buf)
+                    .map_err(|_| Error::ParseCannotOpenFile {
+                        crate_name: mod_name.to_owned(),
+                        src_path: mir_path.to_str().unwrap().to_owned(),
+                    })?;
 
-            if read_amt == 0{
+            if read_amt == 0 {
                 break;
             }
 
-            match re.find(&String::from_utf8(buf).unwrap()){
+            match re.find(&String::from_utf8(buf).unwrap()) {
                 Some(mat) => {
                     fn_sig_str = String::from(mat.as_str());
                     break;
-                },
+                }
                 None => continue,
             };
-
         }
-        mir_file.rewind().unwrap();        
+        mir_file.rewind().unwrap();
 
         if fn_sig_str.is_empty() {
             continue;
         }
 
         // Parse function signature into syn::Signature
-        let fn_sig_syn: syn::Signature = syn::parse_str(&fn_sig_str).map_err(|err| Error::ParseSyntaxError {
-             crate_name: mod_name.to_owned(), 
-             src_path: mir_path.to_str().unwrap().to_owned(),
-             error: err,
-        })?;
+        let fn_sig_syn: syn::Signature =
+            syn::parse_str(&fn_sig_str).map_err(|err| Error::ParseSyntaxError {
+                crate_name: mod_name.to_owned(),
+                src_path: mir_path.to_str().unwrap().to_owned(),
+                error: err,
+            })?;
 
         // Replace return type
-        if assoc_track.ret{
-            if let syn::ReturnType::Type(_, boxed_type) = fn_sig_syn.output{
+        if assoc_track.ret {
+            if let syn::ReturnType::Type(_, boxed_type) = fn_sig_syn.output {
                 let ir_type_result = Type::load(&boxed_type);
                 match ir_type_result {
                     Ok(ir_type_opt) => {
                         // Replace func return type if valid one is found
-                        if let Some(ir_type) = ir_type_opt{
+                        if let Some(ir_type) = ir_type_opt {
                             func.ret = ir_type;
                         }
-                    },
+                    }
                     Err(err_msg) => {
-                        error!("Unable to convert syn::Type parsed from {} to ir::Type. ({})", fn_sig_str, err_msg);
+                        error!(
+                            "Unable to convert syn::Type parsed from {} to ir::Type. ({})",
+                            fn_sig_str, err_msg
+                        );
                     }
                 }
             }
         }
 
-        if assoc_track.args.is_empty(){
+        if assoc_track.args.is_empty() {
             continue;
         }
 
         // Sanity check
         let fn_sig_args: Vec<&syn::FnArg> = fn_sig_syn.inputs.iter().collect();
-        if fn_sig_args.len() != func.args.len(){
-            error!("Number of arguments in MIR does not match source code parse. Skipping function.");
+        if fn_sig_args.len() != func.args.len() {
+            error!(
+                "Number of arguments in MIR does not match source code parse. Skipping function."
+            );
             continue;
         }
 
         // Replace arguments' types
-        for index in assoc_track.args{
-            if let syn::FnArg::Typed(pat_type) = fn_sig_args[index]{
+        for index in assoc_track.args {
+            if let syn::FnArg::Typed(pat_type) = fn_sig_args[index] {
                 let ir_type_result = Type::load(&pat_type.ty);
                 match ir_type_result {
                     Ok(ir_type_opt) => {
                         // Replace func arg type if valid one is found
-                        if let Some(ir_type) = ir_type_opt{
+                        if let Some(ir_type) = ir_type_opt {
                             func.args[index].ty = ir_type;
                         }
-                    },
+                    }
                     Err(err_msg) => {
-                        error!("Unable to convert syn::Type parsed from {} to ir::Type. ({})", fn_sig_str, err_msg);
+                        error!(
+                            "Unable to convert syn::Type parsed from {} to ir::Type. ({})",
+                            fn_sig_str, err_msg
+                        );
                     }
                 }
             }
         }
-
     }
 
     Ok(())
-
 }
 
 #[derive(Debug, Clone)]

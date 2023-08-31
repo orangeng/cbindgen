@@ -19,7 +19,13 @@ fn generate_tests() {
     for entry in entries {
         let path_segment = if entry.file_type().unwrap().is_file() {
             match entry.path().extension().and_then(OsStr::to_str) {
-                Some("rs") => {}
+                Some("rs") => {
+                    // Skip entry if it's assoc_types.rs
+                    // Test line generated separately for this file due to MIR
+                    if entry.file_name() == "assoc_types.rs" {
+                        continue;
+                    }
+                }
                 _ => continue,
             };
 
@@ -54,10 +60,10 @@ fn generate_tests() {
         "
         #[test]\n
         fn test_assoc_types() {{\n
-            test_file(\"assoc_types\", {:?}, {:?});\n
+            test_file(\"assoc_types\", {:?}, Some({:?}));\n
         }}\n
         ",
-        tests_dir.join("assoc_types.test"),
+        tests_dir.join("assoc_types.rs"),
         tests_dir.join("assoc_types.mir"),
     )
     .unwrap();
